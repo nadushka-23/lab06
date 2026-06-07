@@ -1,4 +1,5 @@
 include(InstallRequiredSystemLibraries)
+
 set(CPACK_PACKAGE_CONTACT metelskaya23@yandex.ru)
 set(CPACK_PACKAGE_VERSION_MAJOR ${PRINT_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${PRINT_VERSION_MINOR})
@@ -20,5 +21,8 @@ set(CPACK_RPM_PACKAGE_RELEASE 1)
 set(CPACK_DEBIAN_PACKAGE_NAME "libprint-dev")
 set(CPACK_DEBIAN_PACKAGE_PREDEPENDS "cmake >= 3.0")
 set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
+
+# ЭТА СТРОКА ДОЛЖНА БЫТЬ ДО include(CPack)
+set(CPACK_PACKAGE_EXECUTABLES "solver" "Banking transaction solver")
 
 include(CPack)
