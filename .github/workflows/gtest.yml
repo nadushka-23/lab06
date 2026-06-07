@@ -1,0 +1,25 @@
+name: CMake and Google Test CI
+
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize Git Submodules
+        run: |
+          git submodule init
+          git submodule update
+
+      - name: Configure CMake
+        run: cmake -B build -DBUILD_TESTS=ON
+
+      - name: Build project
+        run: cmake --build build
+
+      - name: Run Google Tests
+        run: ./build/check
