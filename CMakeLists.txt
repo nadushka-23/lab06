@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.10)
 project(banking)
+set(PRINT_VERSION_MAJOR 0)
+set(PRINT_VERSION_MINOR 1)
+set(PRINT_VERSION_PATCH 0)
+set(PRINT_VERSION_TWEAK 0)
+set(PRINT_VERSION
+  ${PRINT_VERSION_MAJOR}.${PRINT_VERSION_MINOR}.${PRINT_VERSION_PATCH}.${PRINT_VERSION_TWEAK})
+set(PRINT_VERSION_STRING "v${PRINT_VERSION}")
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,3 +28,5 @@ if(BUILD_TESTS)
     target_link_libraries(check banking gtest_main gmock_main)
     add_test(NAME check COMMAND check)
 endif()
+
+include(CPackConfig.cmake)
