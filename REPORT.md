@@ -1,5 +1,6 @@
-# Отчёт по лабораторной работе №5
+# Отчёт по лабораторной работе №6
 
+## Изучение средств пакетирования на примере CPack и настройка автоматических релизов
 
 **Выполнил(а):** Метельская Надежда  
 **Дата:** 07.06.2026  
@@ -8,351 +9,414 @@
 
 ## Цель работы
 
-Знакомство с фреймворками для тестирования исходного кода `Google Test` (gtest) и `Google Mock` (gmock). Написание модульных тестов для проверки логики банковской системы и использование заглушек (Mock-объектов) для изоляции тестируемых классов.
+Ознакомление со средствами пакетирования программного обеспечения в экосистеме CMake с помощью утилиты `CPack`. Настройка автоматической генерации архивов исходного кода (`.tar.gz`) и бинарных дистрибутивов (`.deb`, `.rpm`) с публикацией результатов на сервисе GitHub Releases при помощи GitHub Actions.
 
 ---
 
 ## Задачи домашнего задания
 
-1. Создать модульные тесты на классы `Transaction` и `Account` банковской системы.
-2. Использовать Mock-объекты для изоляции логики транзакций.
-3. Обеспечить покрытие кода тестами на 100%.
+1. Создать публичный репозиторий с названием lab06 на сервисе GitHub.
+2. Настроить автоматическое версионирование проекта в `CMakeLists.txt`.
+3. Создать конфигурационный файл `CPackConfig.cmake` для сборщиков пакетов Linux.
+4. Разработать приложение `solver`, интегрированное с библиотекой `banking`.
+5. Написать сценарий GitHub Actions для сборки и публикации релизов при создании Git-тегов.
 
 ---
 
 ## Ход выполнения работы
 
-### 1. Подготовка окружения
+### 1. Подготовка окружения и экспорт переменных
 
-#### Команда 1: Создание и переход в чистую рабочую директорию
+#### Команда 1: Инициализация переменных окружения GITHUB_USERNAME и GITHUB_EMAIL
 ```bash
-mkdir -p ~/workspace
-cd ~/workspace
-```
-
-### 2. Клонирование проекта
-
-#### Команда 2: Клонирование официального репозитория lab05
-```bash
-git clone https://github.com
-cd lab05
+export GITHUB_USERNAME=nadushka-23
+git config --global user.email
+export GITHUB_EMAIL=metelskaya23@yandex.ru
 ```
 #### Вывод терминала:
 ```text
-Cloning into 'lab05'...
-remote: Enumerating objects: 137, done.
-remote: Counting objects: 100% (25/25), done.
-remote: Compressing objects: 100% (9/9), done.
-remote: Total 137 (delta 18), reused 16 (delta 16), pack-reused 112 (from 1)
-Receiving objects: 100% (137/137), 918.92 KiB | 1.64 MiB/s, done.
-Resolving deltas: 100% (60/60), done.
+metelskaya23@yandex.ru
 ```
-### 3. Настройка удалённого репозитория
 
-#### Команда 3: Изменение привязки репозитория на свой личный GitHub
+#### Команда 2: Настройка алиасов для текстового редактора и sed
 ```bash
+alias edit=nano
+alias gsed=sed
+```
+
+#### Команда 3: Подготовка чистой директории workspace
+```bash
+cd ~
+rm -rf workspace
+mkdir -p workspace
+cd workspace
+```
+
+### 2. Клонирование и настройка репозитория
+
+#### Команда 4: Клонирование репозитория lab05 в projects/lab06 и перепривязка origin
+```bash
+git clone https://github.com{GITHUB_USERNAME}/lab05.git projects/lab06
+cd projects/lab06
 git remote remove origin
-git remote add origin https://github.com
-```
-
-### 4. Подключение зависимостей через Git Submodule
-
-#### Команда 4: Инициализация и скачивание фреймворка Google Test в качестве субмодуля
-```bash
-mkdir -p third-party
-git submodule add https://github.com third-party/gtest
+git remote add origin https://github.com{GITHUB_USERNAME}/lab06.git
 ```
 #### Вывод терминала:
 ```text
-Cloning into '/home/nadushka_23/workspace/lab05/third-party/gtest'...
-remote: Enumerating objects: 28670, done.
-remote: Counting objects: 100% (84/84), done.
-remote: Compressing objects: 100% (62/62), done.
-remote: Total 28670 (delta 46), reused 23 (delta 22), pack-reused 28586 (from 3)
-Receiving objects: 100% (28670/28670), 13.81 MiB | 1.74 MiB/s, done.
-Resolving deltas: 100% (21293/21293), done.
+Cloning into 'projects/lab06'...
+remote: Enumerating objects: 159, done.
+remote: Counting objects: 100% (159/159), done.
+remote: Compressing objects: 100% (85/85), done.
+remote: Total 159 (delta 66), reused 158 (delta 65), pack-reused 0 (from 0)
+Receiving objects: 100% (159/159), 926.07 KiB | 798.00 KiB/s, done.
+Resolving deltas: 100% (66/66), done.
 ```
-#### Команда 5: Фиксация стабильной версии репозитория googletest
+
+### 3. Инъекция параметров версии в CMakeLists.txt
+
+#### Команда 5: Добавление переменных версионирования через утилиту gsed
 ```bash
-cd third-party/gtest
-git checkout release-1.11.0
-cd ../..
+gsed -i '/project(banking)/a\
+set(PRINT_VERSION_STRING "v\${PRINT_VERSION}")
+' CMakeLists.txt
+gsed -i '/project(banking)/a\
+set(PRINT_VERSION\
+  \${PRINT_VERSION_MAJOR}.\${PRINT_VERSION_MINOR}.\${PRINT_VERSION_PATCH}.\${PRINT_VERSION_TWEAK})
+' CMakeLists.txt
+gsed -i '/project(banking)/a\
+set(PRINT_VERSION_TWEAK 0)
+' CMakeLists.txt
+gsed -i '/project(banking)/a\
+set(PRINT_VERSION_PATCH 0)
+' CMakeLists.txt
+gsed -i '/project(banking)/a\
+set(PRINT_VERSION_MINOR 1)
+' CMakeLists.txt
+gsed -i '/project(banking)/a\
+set(PRINT_VERSION_MAJOR 0)
+' CMakeLists.txt
+```
+
+#### Команда 6: Проверка изменений с помощью git diff
+```bash
+git diff
 ```
 #### Вывод терминала:
-```text
-Note: switching to 'release-1.11.0'.
-HEAD is now at e2239ee6 Googletest export
+```diff
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 74b9848..2c301c0 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,5 +1,12 @@
+ cmake_minimum_required(VERSION 3.10)
+ project(banking)
++set(PRINT_VERSION_MAJOR 0)
++set(PRINT_VERSION_MINOR 1)
++set(PRINT_VERSION_PATCH 0)
++set(PRINT_VERSION_TWEAK 0)
++set(PRINT_VERSION
++  ${PRINT_VERSION_MAJOR}.${PRINT_VERSION_MINOR}.${PRINT_VERSION_PATCH}.${PRINT_VERSION_TWEAK})
++set(PRINT_VERSION_STRING "v${PRINT_VERSION}")
+
+ set(CMAKE_CXX_STANDARD 11)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ```
 
-#### Команда 6: Фиксация создания субмодуля в Git
+### 4. Создание конфигурационных файлов метаданных пакета
+
+#### Команда 7: Создание файлов метаданных DESCRIPTION и ChangeLog.md
 ```bash
-git add third-party/gtest
-git commit -m "Add Google Test submodule"
-```
-#### Вывод терминала:
-```text
-[master 03ffa54] Add Google Test submodule
- 2 files changed, 4 insertions(+)
- create mode 100644 .gitmodules
- create mode 160000 third-party/gtest
-```
-### 5. Создание конфигурации сборки CMakeLists.txt
-
-#### Команда 7: Создание главного файла CMakeLists.txt с поддержкой директории заголовочных файлов и опции тестирования
-```bash
-cat > CMakeLists.txt << 'EOF'
-cmake_minimum_required(VERSION 3.10)
-project(banking)
-
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-include_directories(banking)
-
-add_library(banking STATIC
-    banking/Account.cpp
-    banking/Transaction.cpp
-)
-
-option(BUILD_TESTS "Build tests" OFF)
-
-if(BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(third-party/gtest)
-    add_executable(check tests/test_banking.cpp)
-    target_link_libraries(check banking gtest_main gmock_main)
-    add_test(NAME check COMMAND check)
-endif()
-EOF
-```
-### 6. Разработка модульных тестов с использованием Google Mock
-
-#### Команда 8: Создание директории для тестов и написание тестов с NiceMock заглушками для проверки классов Account и Transaction
-```bash
-mkdir -p tests
-cat > tests/test_banking.cpp << 'EOF'
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
-#include "Account.h"
-#include "Transaction.h"
-
-using ::testing::_;
-using ::testing::Return;
-using ::testing::NiceMock;
-
-class MockAccount : public Account {
-public:
-    MockAccount(int id, int balance) : Account(id, balance) {}
-
-    MOCK_METHOD(int, GetBalance, (), (const, override));
-    MOCK_METHOD(void, ChangeBalance, (int diff), (override));
-    MOCK_METHOD(void, Lock, (), (override));
-    MOCK_METHOD(void, Unlock, (), (override));
-};
-
-TEST(AccountTest, ConstructorInitializesIdAndBalance) {
-    Account acc(1, 100);
-    EXPECT_EQ(acc.GetBalance(), 100);
-    EXPECT_EQ(acc.id(), 1);
-}
-
-TEST(AccountTest, ChangeBalanceWorksOnlyWhenLocked) {
-    Account acc(1, 100);
-    EXPECT_THROW(acc.ChangeBalance(50), std::runtime_error);
-
-    acc.Lock();
-    acc.ChangeBalance(50);
-    EXPECT_EQ(acc.GetBalance(), 150);
-}
-
-TEST(AccountTest, DoubleLockThrows) {
-    Account acc(1, 100);
-    acc.Lock();
-    EXPECT_THROW(acc.Lock(), std::runtime_error);
-}
-
-TEST(AccountTest, UnlockWorks) {
-    Account acc(1, 100);
-    acc.Lock();
-    acc.Unlock();
-    EXPECT_THROW(acc.ChangeBalance(50), std::runtime_error);
-}
-
-TEST(TransactionTest, MakeThrowsIfSameAccount) {
-    NiceMock<MockAccount> from(1, 100);
-    NiceMock<MockAccount> to(1, 200);
-    Transaction txn;
-    
-    EXPECT_THROW(txn.Make(from, to, 50), std::logic_error);
-}
-
-TEST(TransactionTest, MakeThrowsIfSumNegative) {
-    NiceMock<MockAccount> from(1, 100);
-    NiceMock<MockAccount> to(2, 200);
-    Transaction txn;
-    
-    EXPECT_THROW(txn.Make(from, to, -50), std::invalid_argument);
-}
-
-TEST(TransactionTest, MakeThrowsIfSumTooSmall) {
-    NiceMock<MockAccount> from(1, 100);
-    NiceMock<MockAccount> to(2, 200);
-    Transaction txn;
-    
-    EXPECT_THROW(txn.Make(from, to, 50), std::logic_error);
-}
-
-TEST(TransactionTest, MakeReturnsFalseIfInsufficientFunds) {
-    NiceMock<MockAccount> from(1, 100);
-    NiceMock<MockAccount> to(2, 200);
-    Transaction txn;
-    
-    ON_CALL(from, GetBalance()).WillByDefault(Return(100));
-    ON_CALL(to, GetBalance()).WillByDefault(Return(200));
-    
-    EXPECT_FALSE(txn.Make(from, to, 300));
-}
-
-TEST(TransactionTest, SuccessfulTransactionWithMocks) {
-    NiceMock<MockAccount> from(1, 500);
-    NiceMock<MockAccount> to(2, 200);
-    Transaction txn;
-
-    ON_CALL(from, GetBalance()).WillByDefault(Return(500));
-    ON_CALL(to, GetBalance()).WillByDefault(Return(200));
-    
-    EXPECT_CALL(from, Lock()).Times(1);
-    EXPECT_CALL(to, Lock()).Times(1);
-    
-    EXPECT_CALL(from, Unlock()).Times(1);
-    EXPECT_CALL(to, Unlock()).Times(1);
-
-    EXPECT_TRUE(txn.Make(from, to, 150));
-}
+touch DESCRIPTION && edit DESCRIPTION
+touch ChangeLog.md
+export DATE="$(LANG=en_US date +'%a %b %d %Y')"
+cat > ChangeLog.md << EOF
+* ${DATE} ${GITHUB_USERNAME} <${GITHUB_EMAIL}> 0.1.0.0
+- Initial RPM release
 EOF
 ```
 
-#### Команда 9: Исключение временных папок сборки из коммитов
+#### Команда 8: Генерация файла настроек CPackConfig.cmake
 ```bash
-cat > .gitignore << 'EOF'
-build/
-.apps/
-*.a
-*.so
-*.o
+cat > CPackConfig.cmake << EOF
+include(InstallRequiredSystemLibraries)
+EOF
+
+cat >> CPackConfig.cmake << EOF
+set(CPACK_PACKAGE_CONTACT ${GITHUB_EMAIL})
+set(CPACK_PACKAGE_VERSION_MAJOR \text{\${PRINT_VERSION_MAJOR}})
+set(CPACK_PACKAGE_VERSION_MINOR \text{\${PRINT_VERSION_MINOR}})
+set(CPACK_PACKAGE_VERSION_PATCH \text{\${PRINT_VERSION_PATCH}})
+set(CPACK_PACKAGE_VERSION_TWEAK \text{\${PRINT_VERSION_TWEAK}})
+set(CPACK_PACKAGE_VERSION \text{\${PRINT_VERSION}})
+set(CPACK_PACKAGE_DESCRIPTION_FILE \text{\${CMAKE_CURRENT_SOURCE_DIR}/DESCRIPTION})
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "static C++ library for printing")
+EOF
+
+cat >> CPackConfig.cmake << EOF
+
+set(CPACK_RESOURCE_FILE_LICENSE \text{\${CMAKE_CURRENT_SOURCE_DIR}/LICENSE})
+set(CPACK_RESOURCE_FILE_README \text{\${CMAKE_CURRENT_SOURCE_DIR}/README.md})
+EOF
+
+cat >> CPackConfig.cmake << EOF
+
+set(CPACK_RPM_PACKAGE_NAME "print-devel")
+set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+set(CPACK_RPM_PACKAGE_GROUP "print")
+set(CPACK_RPM_CHANGELOG_FILE \text{\${CMAKE_CURRENT_SOURCE_DIR}/ChangeLog.md})
+set(CPACK_RPM_PACKAGE_RELEASE 1)
+EOF
+
+cat >> CPackConfig.cmake << EOF
+
+set(CPACK_DEBIAN_PACKAGE_NAME "libprint-dev")
+set(CPACK_DEBIAN_PACKAGE_PREDEPENDS "cmake >= 3.0")
+set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
+EOF
+
+cat >> CPackConfig.cmake << EOF
+
+include(CPack)
 EOF
 ```
 
-### 7. Компиляция проекта и запуск тестов
-
-#### Команда 10: Генерация файлов сборки, запуск компиляции и утилиты проверки check
+#### Команда 9: Подключение созданной конфигурации пакетирования в CMakeLists.txt и обновление README
 ```bash
-mkdir build && cd build
-cmake -DBUILD_TESTS=ON ..
-make
-./check
+cat >> CMakeLists.txt << EOF
+
+include(CPackConfig.cmake)
+EOF
+gsed -i 's/lab05/lab06/g' README.md
+```
+
+### 5. Первая локальная сборка проекта и генерация TGZ
+
+#### Команда 10: Генерация файлов CMake и запуск компиляции библиотеки
+```bash
+cmake -H. -B_build
+cmake --build _build
 ```
 #### Вывод терминала:
 ```text
-[ 23%] Built target banking
-[ 38%] Built target gtest
-[ 53%] Built target gmock
-[ 69%] Built target gmock_main
-[ 84%] Built target gtest_main
-[ 92%] Building CXX object CMakeFiles/check.dir/tests/test_banking.cpp.o
-[100%] Linking CXX executable check
-[100%] Built target check
-Running main() from /home/nadushka_23/workspace/lab05/third-party/gtest/googletest/src/gtest_main.cc
-[==========] Running 9 tests from 2 test suites.
-[----------] Global test environment set-up.
-[----------] 4 tests from AccountTest
-[ RUN      ] AccountTest.ConstructorInitializesIdAndBalance
-[       OK ] AccountTest.ConstructorInitializesIdAndBalance (0 ms)
-[ RUN      ] AccountTest.ChangeBalanceWorksOnlyWhenLocked
-[       OK ] AccountTest.ChangeBalanceWorksOnlyWhenLocked (0 ms)
-[ RUN      ] AccountTest.DoubleLockThrows
-[       OK ] AccountTest.DoubleLockThrows (0 ms)
-[ RUN      ] AccountTest.UnlockWorks
-[       OK ] AccountTest.UnlockWorks (0 ms)
-[----------] 4 tests from AccountTest (0 ms total)
-
-[----------] 5 tests from TransactionTest
-[ RUN      ] TransactionTest.MakeThrowsIfSameAccount
-[       OK ] TransactionTest.MakeThrowsIfSameAccount (0 ms)
-[ RUN      ] TransactionTest.MakeThrowsIfSumNegative
-[       OK ] TransactionTest.MakeThrowsIfSumNegative (0 ms)
-[ RUN      ] TransactionTest.MakeThrowsIfSumTooSmall
-[       OK ] TransactionTest.MakeThrowsIfSumTooSmall (0 ms)
-[ RUN      ] TransactionTest.MakeReturnsFalseIfInsufficientFunds
-[       OK ] TransactionTest.MakeReturnsFalseIfInsufficientFunds (0 ms)
-[ RUN      ] TransactionTest.SuccessfulTransactionWithMocks
-[       OK ] TransactionTest.SuccessfulTransactionWithMocks (0 ms)
-[----------] 5 tests from TransactionTest (0 ms total)
-
-[----------] Global test environment tear-down
-[==========] 9 tests from 2 test suites ran. (1 ms total)
-[  PASSED  ] 9 tests.
+-- The C compiler identification is GNU 13.3.0
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done (2.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/nadushka_23/workspace/projects/lab06/_build
+[ 33%] Building CXX object CMakeFiles/banking.dir/banking/Account.cpp.o
+[ 66%] Building CXX object CMakeFiles/banking.dir/banking/Transaction.cpp.o
+[100%] Linking CXX static library libbanking.a
+[100%] Built target banking
 ```
 
-### 8. Публикация результатов в удалённый репозиторий
-
-#### Команда 11: Возврат в корень и индексация новых рабочих файлов
+#### Команда 11: Упаковка проекта в архив .tar.gz с помощью CPack
 ```bash
+cd _build
+cpack -G "TGZ"
 cd ..
-git add CMakeLists.txt tests/test_banking.cpp .gitignore
-git commit -m "Add CMake setup, test cases, and gitignore configuration"
 ```
 #### Вывод терминала:
 ```text
-[master 1189f3f] Add CMake setup, test cases, and gitignore configuration
- 3 files changed, 71 insertions(+)
- create mode 100644 .gitignore
- create mode 100644 CMakeLists.txt
- create mode 100644 tests/test_banking.cpp
+CPack: Create package using TGZ
+CPack: Install projects
+CPack: - Run preinstall target for: banking
+CPack: - Install project: banking []
+CPack: Create package
+CPack: - package: /home/nadushka_23/workspace/projects/lab06/_build/banking-0.1.0.0-Linux.tar.gz generated.
 ```
-#### Команда 12: Финальный пуш проекта на GitHub
+
+#### Команда 12: Фиксация артефактов и работа с утилитой tree
 ```bash
-git push https://nadushka-23:YOUR_GIT_TOKEN@://github.com master
+mkdir artifacts
+mv _build/*.tar.gz artifacts
+sudo apt install tree -y
+ls -la artifacts
 ```
 #### Вывод терминала:
 ```text
-Enumerating objects: 147, done.
-Counting objects: 100% (147/147), done.
+total 12
+drwxr-xr-x 2 nadushka_23 nadushka_23 4096 Jun  7 19:46 .
+drwxr-xr-x 9 nadushka_23 nadushka_23 4096 Jun  7 19:46 ..
+-rw-r--r-- 1 nadushka_23 nadushka_23   29 Jun  7 19:46 banking-0.1.0.0-Linux.tar.gz
+```
+
+#### Команда 13: Пуш базовой структуры на GitHub и создание тега v0.1.0.0
+```bash
+git add .
+git commit -m "added cpack config"
+git push -u origin master
+```
+#### Вывод терминала:
+```text
+[master 566757e] added cpack config
+ 5 files changed, 42 insertions(+), 6 deletions(-)
+ create mode 100644 CPackConfig.cmake
+ create mode 100644 ChangeLog.md
+ create mode 100644 DESCRIPTION
+Username for 'https://github.com': nadushka-23
+Password for 'https://nadushka-23@github.com':
+Enumerating objects: 166, done.
+Counting objects: 100% (166/166), done.
 Delta compression using up to 22 threads
-Compressing objects: 100% (81/81), done.
-Writing objects: 100% (147/147), 920.54 KiB | 102.28 MiB/s, done.
-Total 147 (delta 62), reused 136 (delta 60), pack-reused 0
-remote: Resolving deltas: 100% (62/62), done.
-To https://://github.com
+Compressing objects: 100% (90/90), done.
+Writing objects: 100% (166/166), 927.45 KiB | 92.75 MiB/s, done.
+Total 166 (delta 69), reused 157 (delta 66), pack-reused 0
+remote: Resolving deltas: 100% (69/69), done.
+To https://github.com
  * [new branch]      master -> master
+branch 'master' set up to track 'origin/master'.
 ```
 
-#### Команда 13: Добавление файла отчёта в индекс Git
-```bash
-git add REPORT.md
-```
+### 6. Копирование официального репозитория заданий и подготовка к Homework
 
-#### Команда 14: Создание коммита для отчёта
+#### Команда 14: Переход в домашнюю папку и загрузка шаблона ЛР6
 ```bash
-git commit -m "Add formal REPORT.md via nano"
+cd ~
+export LAB_NUMBER=06
+git clone https://github.com{LAB_NUMBER} tasks/lab${LAB_NUMBER}
+mkdir -p reports/lab${LAB_NUMBER}
+cp tasks/lab${LAB_NUMBER}/README.md reports/lab${LAB_NUMBER}/REPORT.md
 ```
 #### Вывод терминала:
 ```text
-[master 2b3c4d5] Add formal REPORT.md via nano
- 1 file changed, 150 insertions(+)
- create mode 100644 REPORT.md
+Cloning into 'tasks/lab06'...
+remote: Enumerating objects: 117, done.
+remote: Counting objects: 100% (37/37), done.
+remote: Compressing objects: 100% (4/4), done.
+```
+### 7. Реализация Homework: Разработка приложения solver и интеграция CI/CD
+
+#### Команда 15: Возврат в директорию проекта и написание исходного кода solver.cpp
+```bash
+cd ~/workspace/projects/lab06
+cat > solver.cpp << 'EOF'
+#include <iostream>
+#include "banking/Account.h"
+#include "banking/Transaction.h"
+
+int main() {
+    Account from(1, 500);
+    Account to(2, 100);
+    Transaction txn;
+
+    std::cout << "Before transaction: from=" << from.GetBalance()
+              << " to=" << to.GetBalance() << std::endl;
+
+    bool success = txn.Make(from, to, 200);
+
+    std::cout << "Transaction success: " << (success ? "yes" : "no") << std::endl;
+    std::cout << "After transaction: from=" << from.GetBalance()
+              << " to=" << to.GetBalance() << std::endl;
+
+    return 0;
+}
+EOF
 ```
 
-#### Команда 15: Отправка отчёта в удалённый репозиторий
+#### Команда 16: Конфигурирование сборки исполняемого файла и CPack через nano
 ```bash
+nano CMakeLists.txt
+nano CPackConfig.cmake
+```
+
+#### Команда 17: Создание автоматического workflow-сценария релиза GitHub Actions
+```bash
+mkdir -p .github/workflows
+cat > .github/workflows/release.yml << 'EOF'
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential rpm
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Package with CPack
+        run: |
+          cd build
+          cpack -G DEB
+          cpack -G RPM
+          cpack -G TGZ
+          mv *.deb *.rpm *.tar.gz ../
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.deb
+            *.rpm
+            *.tar.gz
+EOF
+```
+
+#### Команда 18: Фиксация изменений в ветке master и отправка на сервер
+```bash
+git add solver.cpp CMakeLists.txt CPackConfig.cmake .github/workflows/release.yml
+git commit -m "Add solver and GitHub Actions release workflow"
 git push origin master
 ```
 #### Вывод терминала:
 ```text
-Everything up-to-date
+[master 9b18a9f] Add solver and GitHub Actions release workflow
+ 4 files changed, 70 insertions(+), 1 deletion(-)
+ create mode 100644 .github/workflows/release.yml
+ create mode 100644 solver.cpp
+Username for 'https://github.com': nadushka-23
+Password for 'https://nadushka-23@github.com':
+Enumerating objects: 13, done.
+Counting objects: 100% (13/13), done.
+Delta compression using up to 22 threads
+Compressing objects: 100% (7/7), done.
+Writing objects: 100% (8/8), 1.43 KiB | 1.43 MiB/s, done.
+Total 8 (delta 3), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (3/3), completed with 3 local objects.
+To https://github.com
+   566757e..9b18a9f  master -> master
+```
+
+#### Команда 19: Создание и отправка тега v0.2.0.0 для инициализации автоматического релиза пакетов
+```bash
+git tag v0.2.0.0
+git push origin v0.2.0.0
+```
+#### Вывод терминала:
+```text
+Username for 'https://github.com': nadushka-23
+Password for 'https://nadushka-23@github.com':
+Total 0 (delta 0), reused 0 (delta 0), pack-reused 0
+To https://github.com
+ * [new tag]         v0.2.0.0 -> v0.2.0.0
 ```
 
 ---
 
 ## Выводы
-В ходе лабораторной работы были успешно освоены инструменты модульного тестирования С++ программ на базе фреймворка `Google Test`. С помощью `Google Mock` спроектирована модель фиктивного банковского аккаунта, что позволило изолировать и проверить на 100% внутреннюю бизнес-логику транзакций (включая проверку граничных сумм и ситуаций с недостатком средств).
+
+В ходе выполнения лабораторной работы были изучены базовые принципы автоматизированного создания дистрибутивов с помощью инструмента `CPack`. Разработано консольное приложение `solver`, интегрированное со статической банковской библиотекой, настроена автоматическая кросс-пакетизация проекта в форматы бинарных пакетов Linux (`.deb`, `.rpm`) и архива исходного кода (`.tar.gz`), успешно развернутая на GitHub Actions с триггером по тегам версий.
